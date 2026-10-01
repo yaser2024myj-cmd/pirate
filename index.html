@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أسطورة القراصنة - المغامرة الكبرى</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #120b06; color: #f4e8c1; text-align: center; padding: 15px; margin: 0; }
+  .card { background: #23160c; border: 3px solid #8b5a2b; border-radius: 15px; padding: 20px; max-width: 550px; margin: 0 auto; box-shadow: 0 8px 25px rgba(0,0,0,0.7); }
+  h1 { color: #f39c12; margin-top: 0; font-size: 24px; text-shadow: 2px 2px 4px #000; }
+  .setup-btn, .action-btn { background: #e67e22; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; transition: 0.2s; }
+  .setup-btn:hover, .action-btn:hover { background: #d35400; }
+  .heal-btn { background: #27ae60; }
+  .heal-btn:hover { background: #219150; }
+  
+  .status-box { background: #1a0f08; border: 1px solid #5a3c1e; padding: 12px; border-radius: 10px; margin: 15px 0; text-align: right; }
+  .hp-bar-bg { background: #442222; border-radius: 8px; height: 18px; width: 100%; overflow: hidden; margin-top: 4px; border: 1px solid #773333; }
+  .hp-bar-fill { background: #e74c3c; height: 100%; width: 100%; transition: width 0.3s; }
+  .monster-hp { background: #c0392b; }
+  
+  .players-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
+  .player-card { background: #2c1d11; border: 1px solid #6e4723; padding: 8px; border-radius: 8px; flex: 1 1 45%; font-size: 13px; text-align: right; }
+  .player-card.active { border: 2px solid #f39c12; background: #3d2817; }
+  .player-card.dead { opacity: 0.5; border-color: #555; }
+  
+  input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #8b5a2b; background: #110a05; color: #fff; font-size: 14px; margin-top: 10px; text-align: right; }
+  
+  .log { background: #0a0603; border: 1px solid #3d2817; padding: 12px; margin-top: 15px; border-radius: 8px; text-align: right; height: 200px; overflow-y: auto; font-size: 13px; line-height: 1.6; }
+  .game-over-screen { background: #3a0808; border: 3px solid #ff0000; border-radius: 15px; padding: 25px; display: none; }
+  .game-over-screen h2 { color: #ff4d4d; font-size: 28px; }
+</style>
+</head>
+<body>
+
+<div class="card" id="main-card">
+  <h1>🏴‍☠️ أسطورة القراصنة والبحار الخمسة</h1>
+  
+  <!-- شاشة البداية -->
+  <div id="game-setup">
+    <p>حدد عدد القراصنة المبحربن معنا اليوم:</p>
+    <button class="setup-btn" onclick="startGame(1)">لاعب واحد 👤</button>
+    <button class="setup-btn" onclick="startGame(2)">لاعبين 👥</button>
+    <button class="setup-btn" onclick="startGame(3)">3 أبطال ⚔️</button>
+    <button class="setup-btn" onclick="startGame(4)">4 أبطال 🔥</button>
+  </div>
+
+  <!-- شاشة اللعب -->
+  <div id="game-play" style="display:none;">
+    <h2 id="island-title" style="color:#e67e22; margin:5px 0;">--</h2>
+    <h4 id="stage-title" style="color:#f1c40f; margin:0 0 10px 0;">--</h4>
+    
+    <!-- صحة الوحش -->
+    <div class="status-box">
+      <div style="display:flex; justify-shadow:space-between; font-weight:bold;">
+        <span id="monster-name">👾 الوحش</span>
+        <span id="monster-hp-text">100 / 100 HP</span>
+      </div>
+      <div class="hp-bar-bg"><div id="monster-hp-fill" class="hp-bar-fill monster-hp"></div></div>
+    </div>
+
+    <!-- قائمة القراصنة -->
+    <div class="players-list" id="players-container"></div>
+
+    <!-- دور اللاعب الحالي والتحكم -->
+    <div style="text-align:right; background:#1a0f08; padding:10px; border-radius:8px; border:1px solid #4a3319;">
+      <span id="current-player-turn" style="font-weight:bold; color:#f39c12;">دور القرصان: --</span>
+      <input type="text" id="action-input" placeholder="اكتب حركتك الخرافية هنا (مثال: أطمر عليه وأقطع لسانه بالسيف)...">
+      
+      <div style="display:flex; gap:5px; margin-top:8px;">
+        <button class="action-btn" style="flex:2;" onclick="playTurn()">🎲 ارمِ النرد ونفّذ الهجمة!</button>
+        <button class="action-btn heal-btn" id="heal-btn" style="flex:1; display:none;" onclick="healTeammate()">💉 إسعاف خويك</button>
+      </div>
+    </div>
+
+    <!-- سجل الأحداث -->
+    <div class="log" id="game-log"></div>
+  </div>
+
+  <!-- شاشة الموت وإعادة اللعبة كاملة -->
+  <div class="game-over-screen" id="game-over">
+    <h2>☠️ GAME OVER ☠️</h2>
+    <p>غرق أسطولكم ومات جميع القراصنة في أعماق المحيط!</p>
+    <p style="color:#ccc; font-size:14px;">(بسبب القوانين الصارمة: ستعيد اللعبة بالكامل من الجزيرة الأولى!)</p>
+    <button class="setup-btn" style="background:#ff3333; font-size:18px; padding:15px 30px;" onclick="resetGameCompletely()">🔄 إعادة اللعبة من البداية</button>
+  </div>
+</div>
+
+<script>
+let players = [];
+let currentPlayerIdx = 0;
+let currentIsland = 1;
+let currentStage = 1;
+let totalIslands = 3;
+
+let monster = { name: "القرش البرمائي", hp: 100, maxHp: 100 };
+
+const islands = [
+  { name: "جزيرة الجمجمة العائمة 💀", monsters: ["القرش البرمائي", "قاطع الطرق الملعون", "حارس البوابة الحجري", "سياف الظلام", "زعيم الجمجمة العملاق 🔥"] },
+  { name: "جزيرة العواصف الغاضبة ⚡", monsters: ["عفريت البرق", "طائر العنقاء المتمرد", "قرصان الهيكل العظمي", "ساحر الصواعق", "تنين البحر الأسود 🐉"] },
+  { name: "جزيرة الكنز الملعون 👑", monsters: ["حارس الذهب الملعون", "شبخ القرصان الأسطوري", "المستذئب البركاني", "عملاق المحيط", "إمبراطور القراصنة الملعون ☠️"] }
+];
+
+function startGame(num) {
+  players = [];
+  for (let i = 1; i <= num; i++) {
+    players.push({ id: i, name: `القرصان ${i}`, hp: 50, maxHp: 50, isDead: false });
+  }
+  document.getElementById("game-setup").style.display = "none";
+  document.getElementById("game-play").style.display = "block";
+  document.getElementById("game-over").style.display = "none";
+  
+  currentIsland = 1;
+  currentStage = 1;
+  initStage();
+  log("🏴‍☠️ انطلقت السفينة! تبدأ المغامرة الآن كافئحوا للوصول للكنز!");
+}
+
+function initStage() {
+  let islandData = islands[currentIsland - 1];
+  monster.name = islandData.monsters[currentStage - 1];
+  monster.maxHp = 80 + (currentIsland * 20) + (currentStage * 10);
+  monster.hp = monster.maxHp;
+  
+  // إيجاد أول لاعب حي
+  findNextAlivePlayer();
+  updateUI();
+}
+
+function updateUI() {
+  document.getElementById("island-title").innerText = islands[currentIsland - 1].name;
+  document.getElementById("stage-title").innerText = `المرحلة ${currentStage} من 5: [ ${monster.name} ]`;
+  
+  // تحديث صحة الوحش
+  document.getElementById("monster-name").innerText = `👾 ${monster.name}`;
+  document.getElementById("monster-hp-text").innerText = `${monster.hp} / ${monster.maxHp} HP`;
+  let monsterPct = Math.max(0, (monster.hp / monster.maxHp) * 100);
+  document.getElementById("monster-hp-fill").style.width = monsterPct + "%";
+
+  // تحديث قائمة اللاعبين
+  let playersHTML = "";
+  let hasDeadTeammate = false;
+  
+  players.forEach((p, idx) => {
+    let activeClass = (idx === currentPlayerIdx) ? "active" : "";
+    let deadClass = p.isDead ? "dead" : "";
+    let hpPct = Math.max(0, (p.hp / p.maxHp) * 100);
+    
+    if (p.isDead && players.length > 1) hasDeadTeammate = true;
+
+    playersHTML += `
+      <div class="player-card ${activeClass} ${deadClass}">
+        <div><strong>${p.name}</strong> ${p.isDead ? "💀 (مغشي عليه)" : ""}</div>
+        <div style="font-size:11px;">صحة: ${p.hp}/${p.maxHp} HP</div>
+        <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${hpPct}%;"></div></div>
+      </div>
+    `;
+  });
+  document.getElementById("players-container").innerHTML = playersHTML;
+
+  // زر الإسعاف
+  let healBtn = document.getElementById("heal-btn");
+  if (hasDeadTeammate || players.some(p => p.hp < p.maxHp)) {
+    healBtn.style.display = "inline-block";
+  } else {
+    healBtn.style.display = "none";
+  }
+
+  let currP = players[currentPlayerIdx];
+  document.getElementById("current-player-turn").innerText = `دور: ${currP ? currP.name : '--'}`;
+}
+
+function playTurn() {
+  let player = players[currentPlayerIdx];
+  if (!player || player.isDead) return;
+
+  let userAction = document.getElementById("action-input").value.trim();
+  if (userAction === "") {
+    userAction = "هجم بسيفه بكل قوة!";
+  }
+
+  let dice = Math.floor(Math.random() * 6) + 1;
+  log(`⚔️ <strong>${player.name}</strong> حاول: "${userAction}"`);
+  log(`🎲 رمى النرد وحصل على: <strong>[ ${dice} ]</strong>`);
+
+  // تقييم النتيجة وفقاً للنرد
+  if (dice === 6) {
+    let dmg = 35 + Math.floor(Math.random() * 15);
+    monster.hp -= dmg;
+    log(`💥 <strong>ضربة بيرفكت حاسمة (Critical Hit)!</strong> ظبطت حركتك بالملي وألحقت ${dmg} ضرر بالوحش! وشللت حركته!`);
+  } else if (dice >= 4) {
+    let dmg = 20 + Math.floor(Math.random() * 10);
+    monster.hp -= dmg;
+    log(`✨ <strong>نجاح الهجوم!</strong> حركتك نجحت وألحقت ${dmg} ضرر بـ ${monster.name}.`);
+  } else if (dice >= 2) {
+    let dmg = 8 + Math.floor(Math.random() * 5);
+    monster.hp -= dmg;
+    let retaliation = 10;
+    player.hp -= retaliation;
+    log(`🛡️ <strong>هجوم ضعيف!</strong> حركتك كادت تلمسه فقط ورَد عليك بضربة خفيفة (-${retaliation} HP لك، و-${dmg} HP للوحش).`);
+  } else {
+    let retaliation = 20 + Math.floor(Math.random() * 10);
+    player.hp -= retaliation;
+    log(`❌ <strong>فشل ذريع!</strong> تعثرت وسقطت على وجهك! ${monster.name} جلدك وعطاك كف أخذ منك ${retaliation} HP!`);
+  }
+
+  // تفقد الموت للاعب
+  if (player.hp <= 0) {
+    player.hp = 0;
+    player.isDead = true;
+    log(`💀 <strong>سقط ${player.name}!</strong> أغمي عليه ولا يستطيع القتال إلا إذا تم إسعافه!`);
+  }
+
+  // تفقد الموت للوحش
+  if (monster.hp <= 0) {
+    monster.hp = 0;
+    log(`🎉 <strong>تم القضاء على ${monster.name}!</strong> فزتم بالمرحلة!`);
+    currentStage++;
+    if (currentStage > 5) {
+      currentStage = 1;
+      currentIsland++;
+      if (currentIsland > totalIslands) {
+        log("👑👑 <strong>أسطوري! فزتم باللعبة بالكامل وفتحتم كنز القراصنة الأكبر!</strong> 👑👑");
+        alert("🎉 مبروك! فتحتم جميع الجزر وهزمتم جميع البوسات!");
+        return;
+      } else {
+        log(`⛵ <strong>انتقلتم للجزيرة الجديدة: ${islands[currentIsland - 1].name}!</strong>`);
+      }
+    }
+    initStage();
+    document.getElementById("action-input").value = "";
+    return;
+  }
+
+  // تفقد موت جميع اللاعبين
+  if (players.every(p => p.isDead)) {
+    triggerGameOver();
+    return;
+  }
+
+  // الانتقال للاعب الحي التالي
+  findNextAlivePlayer();
+  document.getElementById("action-input").value = "";
+  updateUI();
+}
+
+function healTeammate() {
+  let healer = players[currentPlayerIdx];
+  let dice = Math.floor(Math.random() * 6) + 1;
+  
+  // البحث عن لاعب يحتاج علاج (المغشي عليه أولاً)
+  let target = players.find(p => p.isDead) || players.find(p => p.hp < p.maxHp);
+  
+  if (!target) {
+    log("💊 جميع القراصنة بصحة ممتازة ولا يحتاجون علاج!");
+    return;
+  }
+
+  log(`💉 <strong>${healer.name}</strong> حاول إسعاف وسكب جرعة الشفاء على <strong>${target.name}</strong>...`);
+  log(`🎲 رمى نرد الشفاء: <strong>[ ${dice} ]</strong>`);
+
+  if (dice >= 3) {
+    let healAmount = 25;
+    target.hp += healAmount;
+    if (target.hp > target.maxHp) target.hp = target.maxHp;
+    if (target.isDead) {
+      target.isDead = false;
+      log(`✨ <strong>معجزة!</strong> استعاد ${target.name} وعيه ورجع للقتال بـ ${target.hp} HP!`);
+    } else {
+      log(`💚 تم زيادة صحة ${target.name} بمقدار +${healAmount} HP!`);
+    }
+  } else {
+    log(`❌ انسكبت دواية الشفاء على الأرض ولم يستفد منها أحد!`);
+  }
+
+  findNextAlivePlayer();
+  updateUI();
+}
+
+function findNextAlivePlayer() {
+  let count = 0;
+  do {
+    currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+    count++;
+  } while (players[currentPlayerIdx].isDead && count <= players.length);
+}
+
+function triggerGameOver() {
+  document.getElementById("game-play").style.display = "none";
+  document.getElementById("game-over").style.display = "block";
+}
+
+function resetGameCompletely() {
+  document.getElementById("game-over").style.display = "none";
+  document.getElementById("game-setup").style.display = "block";
+  document.getElementById("game-log").innerHTML = "";
+}
+
+function log(text) {
+  let logBox = document.getElementById("game-log");
+  logBox.innerHTML += text + "<br>";
+  logBox.scrollTop = logBox.scrollHeight;
+}
+</script>
+</body>
+</html>
